@@ -1,0 +1,9 @@
+{
+  "name": "com.josephbuchma.ghsandbox",
+  "description": "Native client for GHSandbox chrome extension",
+  "path": "HOST_PATH_PLACEHOLDER",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://aalfpooomlainhokhdladeiihcaincgn/"
+  ]
+}

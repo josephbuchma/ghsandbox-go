@@ -51,6 +51,10 @@ else
   HOST_PATH=$HOME/.local/bin/ghsandbox
 fi
 
+if [ "$HGSANDBOX_ENV" == "development" ]; then
+  HOST_PATH=`pwd`/ghsandbox
+fi
+
 if hash go > /dev/null 2>&1 ; then
   echo 'Build ghsandbox host app from source'
   go build -o $HOST_PATH ghsandbox.go

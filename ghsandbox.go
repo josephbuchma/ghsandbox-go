@@ -26,32 +26,35 @@ const (
 
 var debug = flag.Bool("debug", false, "debug mode")
 
-type ActionName struct {
-	Action string `json:"action"`
+// packBytes returns byte slice with prepended 4 bytes with size data
+func packBytes(b []byte) []byte {
+	msgLen := uint32(len(b))
+	fmt.Fprintf(os.Stdout, "%d\n", msgLen)
+	buf := bytes.Buffer{}
+	binary.Write(&buf, binary.LittleEndian, msgLen)
+	buf.Write(b)
+	return buf.Bytes()
 }
 
-func readMsgLen(r io.Reader) int {
+func readMsgLen(r io.Reader) (int, error) {
 	var msgLen uint32
-	tmpb := make([]byte, 4)
-	n, err := r.Read(tmpb)
-	buf := bytes.NewBuffer(tmpb)
-	log.Printf("Read %d bytes of len", n)
-	if n == 0 {
-		return 0
-	}
+	rawMsgLenBytes := make([]byte, 4)
+
+	_, err := io.ReadFull(r, rawMsgLenBytes)
 	if err != nil {
-		log.Fatal("Failed to read message")
+		return 0, err
 	}
+	buf := bytes.NewBuffer(rawMsgLenBytes)
 	binary.Read(buf, binary.LittleEndian, &msgLen)
 	if msgLen < 0 {
-		log.Fatalf("Invalid msg len: %d", msgLen)
+		return 0, fmt.Errorf("Invalid message length: %d", msgLen)
 	}
-	return int(msgLen)
+	return int(msgLen), nil
 }
 
 func receiveMsg() (action string, body []byte) {
 	log.Println("Reading msg")
-	msgLen := readMsgLen(os.Stdin)
+	msgLen, err := readMsgLen(os.Stdin)
 	log.Printf("Message len: %d", msgLen)
 	body = make([]byte, msgLen)
 	n, err := os.Stdin.Read(body)
@@ -62,15 +65,90 @@ func receiveMsg() (action string, body []byte) {
 		log.Fatal("Invalid message (size mismatch: %d vs %d)", msgLen, n)
 	}
 
-	act := ActionName{}
+	act := Message{}
 	err = json.Unmarshal(body, &act)
 	if err != nil {
 		log.Fatal("Failed to parse action")
 	}
 
-	action = act.Action
+	action = act.Type
 
 	return
+}
+
+// Message represent structure that is used for communication with GHSandbox Chrome extension
+type Message struct {
+	// Type tells to what you should unmarshal the Payload
+	Type string `json:"type"`
+	// Payload contains raw json
+	Payload []byte `json:"payload"`
+
+	rawPayload interface{}
+}
+
+// NewMessage creates new Message object ready to Pack
+func NewMessage(messageType string, rawPayload interface{}) *Message {
+	return &Message{Type: messageType, rawPayload: rawPayload}
+}
+
+func p(s string, v ...interface{}) {
+	fmt.Fprintf(os.Stdout, s+"\n", v...)
+}
+
+func ReadMessage(r io.Reader) (*Message, error) {
+	p("READ MESSAGE\n")
+	msgLen, err := readMsgLen(r)
+	p("msgLen=%d\n", msgLen)
+	if err != nil {
+		return nil, err
+	}
+	body := make([]byte, msgLen)
+	_, err = io.ReadFull(r, body)
+	if err != nil {
+		return nil, err
+	}
+	var msg Message
+	err = json.Unmarshal(body, &msg)
+	return &msg, err
+}
+
+func NewMessageStreamReader(r io.Reader) <-chan *Message {
+	out := make(chan *Message)
+	go func() {
+		for {
+			msg, err := ReadMessage(r)
+			if err == nil {
+				out <- msg
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}()
+	return out
+}
+
+// Pack returns marshalled message with prepended 4 bytes with size data
+func (m *Message) Pack() (packedMessage []byte, err error) {
+	if m.Payload == nil {
+		m.Payload, err = json.Marshal(m.rawPayload)
+		fmt.Fprintf(os.Stdout, "Raw marshalled : %s\n", m.Payload)
+		if err != nil {
+			return nil, err
+		}
+	}
+	marshalled, err := json.Marshal(m)
+	fmt.Fprintf(os.Stdout, "%s\n", marshalled)
+	return packBytes(marshalled), err
+}
+
+// WriteTo writes packed message
+func (m Message) WriteTo(w io.Writer) error {
+	packed, err := m.Pack()
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(packed)
+	return err
 }
 
 type SandboxAction struct {
@@ -164,12 +242,13 @@ func main() {
 	}
 
 	log.Println("Starting github-sandbox")
-	action, msg := receiveMsg()
-	log.Printf("Received message: %s", msg)
+	messageStream := NewMessageStreamReader(os.Stdin)
+	msg := <-messageStream
+	log.Printf("Received message: %#v", *msg)
 
-	switch action {
+	switch msg.Type {
 	case "sandbox":
-		handleSandboxAction(*unmarshalMsg(msg, &SandboxAction{}).(*SandboxAction))
+		handleSandboxAction(*unmarshalMsg(msg.Payload, &SandboxAction{}).(*SandboxAction))
 	default:
 		log.Println("NO ACTION MATCHED")
 	}

@@ -1,0 +1,108 @@
+package main
+
+import (
+	"encoding/json"
+	"io"
+	"testing"
+)
+
+//func noopChan(n int) <-chan struct{} {
+//  ret := make(chan struct{})
+//  defer func() {
+//    for i := 0; i < n; i++ {
+//      ret <- struct{}{}
+//    }
+//    close(ret)
+//  }()
+//  return ret
+//}
+
+type TestMsgType struct {
+	Foo string `json:"foo"`
+}
+
+type TestReader struct {
+	t      *testing.T
+	Bytes  []byte
+	Offset *int
+}
+
+func (r TestReader) Read(b []byte) (n int, err error) {
+	r.t.Logf("OFFSET: %d; len(b): %d, len(r.Bytes): %d, rdr: %d", *r.Offset, len(b), len(r.Bytes), len(r.Bytes)-*r.Offset)
+	if *r.Offset < len(r.Bytes) {
+		n = copy(b, r.Bytes[*r.Offset:])
+		*r.Offset = *r.Offset + n
+	}
+	if *r.Offset == len(r.Bytes) {
+		err = io.EOF
+	}
+	return
+}
+
+func TestTestReader(t *testing.T) {
+	tstRawMsg := []byte(`abcdefg`)
+	r := TestReader{t, tstRawMsg, new(int)}
+	tbuf := make([]byte, 7)
+
+	n, err := r.Read(tbuf)
+	if n != len(tbuf) {
+		t.Errorf("Expeced readed length to be %d, got %d", len(tbuf), n)
+	}
+	if err != io.EOF {
+		t.Errorf("Expected io.EOF, got %#v", err)
+	}
+}
+
+func TestMessage(t *testing.T) {
+	m := NewMessage("someType", &TestMsgType{"lol"})
+	packed, err := m.Pack()
+	t.Logf("%#v\n", packed)
+	if err != nil {
+		t.Error("Expeced no error from m.Pack()")
+	}
+
+	var unpackedMsg Message
+
+	err = json.Unmarshal(packed[4:], &unpackedMsg)
+	t.Logf("%s\n", unpackedMsg.Payload)
+}
+
+func TestReadMessage(t *testing.T) {
+	// tstRawMsg length == 52
+	tstRawMsg := []byte{0x34, 0x0, 0x0, 0x0, 0x7b, 0x22, 0x74, 0x79, 0x70, 0x65, 0x22, 0x3a, 0x22, 0x73, 0x6f, 0x6d, 0x65, 0x54, 0x79, 0x70, 0x65, 0x22, 0x2c, 0x22, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x3a, 0x22, 0x65, 0x79, 0x4a, 0x6d, 0x62, 0x32, 0x38, 0x69, 0x4f, 0x69, 0x4a, 0x73, 0x62, 0x32, 0x77, 0x69, 0x66, 0x51, 0x3d, 0x3d, 0x22, 0x7d}
+	//tstRawMsg := []byte(`{"type":"someType","payload":"empty"}`)
+
+	r := TestReader{t, tstRawMsg, new(int)}
+
+	//msgLen, err := readMsgLen(r)
+
+	//t.Logf("MESSAGE LENGTH : %d\n", msgLen)
+
+	msg, err := ReadMessage(r)
+	if err != nil {
+		t.Errorf("Unexpedted error reading message - %s", err.Error())
+	}
+	t.Logf("MESSAGE !!!!!!!!!!!! %v", msg)
+}
+
+func TestMessageStreamReader(t *testing.T) {
+	tstRawMsg := []byte{0x34, 0x0, 0x0, 0x0, 0x7b, 0x22, 0x74, 0x79, 0x70, 0x65, 0x22, 0x3a, 0x22, 0x73, 0x6f, 0x6d, 0x65, 0x54, 0x79, 0x70, 0x65, 0x22, 0x2c, 0x22, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x3a, 0x22, 0x65, 0x79, 0x4a, 0x6d, 0x62, 0x32, 0x38, 0x69, 0x4f, 0x69, 0x4a, 0x73, 0x62, 0x32, 0x77, 0x69, 0x66, 0x51, 0x3d, 0x3d, 0x22, 0x7d, 0x34, 0x0, 0x0, 0x0, 0x7b, 0x22, 0x74, 0x79, 0x70, 0x65, 0x22, 0x3a, 0x22, 0x73, 0x6f, 0x6d, 0x65, 0x54, 0x79, 0x70, 0x65, 0x22, 0x2c, 0x22, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x3a, 0x22, 0x65, 0x79, 0x4a, 0x6d, 0x62, 0x32, 0x38, 0x69, 0x4f, 0x69, 0x4a, 0x73, 0x62, 0x32, 0x77, 0x69, 0x66, 0x51, 0x3d, 0x3d, 0x22, 0x7d}
+	r := TestReader{t, tstRawMsg, new(int)}
+
+	streamReader := NewMessageStreamReader(r)
+
+	for i := 0; i < 2; i++ {
+		msg := <-streamReader
+		if msg.Type != "someType" {
+			t.Errorf("Invalid message type (malformed message): %#v", *msg)
+		}
+		//select {
+		//case msg := <-streamReader:
+		//  if msg.Type != "someType" {
+		//    t.Errorf("Invalid message type (malformed message): %#v", *msg)
+		//  }
+		//default:
+		//  t.Error("Expected message from stream")
+		//}
+	}
+}

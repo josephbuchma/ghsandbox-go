@@ -6,17 +6,6 @@ import (
 	"testing"
 )
 
-//func noopChan(n int) <-chan struct{} {
-//  ret := make(chan struct{})
-//  defer func() {
-//    for i := 0; i < n; i++ {
-//      ret <- struct{}{}
-//    }
-//    close(ret)
-//  }()
-//  return ret
-//}
-
 type TestMsgType struct {
 	Foo string `json:"foo"`
 }
@@ -28,7 +17,6 @@ type TestReader struct {
 }
 
 func (r TestReader) Read(b []byte) (n int, err error) {
-	r.t.Logf("OFFSET: %d; len(b): %d, len(r.Bytes): %d, rdr: %d", *r.Offset, len(b), len(r.Bytes), len(r.Bytes)-*r.Offset)
 	if *r.Offset < len(r.Bytes) {
 		n = copy(b, r.Bytes[*r.Offset:])
 		*r.Offset = *r.Offset + n
@@ -70,19 +58,13 @@ func TestMessage(t *testing.T) {
 func TestReadMessage(t *testing.T) {
 	// tstRawMsg length == 52
 	tstRawMsg := []byte{0x34, 0x0, 0x0, 0x0, 0x7b, 0x22, 0x74, 0x79, 0x70, 0x65, 0x22, 0x3a, 0x22, 0x73, 0x6f, 0x6d, 0x65, 0x54, 0x79, 0x70, 0x65, 0x22, 0x2c, 0x22, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x3a, 0x22, 0x65, 0x79, 0x4a, 0x6d, 0x62, 0x32, 0x38, 0x69, 0x4f, 0x69, 0x4a, 0x73, 0x62, 0x32, 0x77, 0x69, 0x66, 0x51, 0x3d, 0x3d, 0x22, 0x7d}
-	//tstRawMsg := []byte(`{"type":"someType","payload":"empty"}`)
 
 	r := TestReader{t, tstRawMsg, new(int)}
-
-	//msgLen, err := readMsgLen(r)
-
-	//t.Logf("MESSAGE LENGTH : %d\n", msgLen)
 
 	msg, err := ReadMessage(r)
 	if err != nil {
 		t.Errorf("Unexpedted error reading message - %s", err.Error())
 	}
-	t.Logf("MESSAGE !!!!!!!!!!!! %v", msg)
 }
 
 func TestMessageStreamReader(t *testing.T) {
@@ -96,13 +78,5 @@ func TestMessageStreamReader(t *testing.T) {
 		if msg.Type != "someType" {
 			t.Errorf("Invalid message type (malformed message): %#v", *msg)
 		}
-		//select {
-		//case msg := <-streamReader:
-		//  if msg.Type != "someType" {
-		//    t.Errorf("Invalid message type (malformed message): %#v", *msg)
-		//  }
-		//default:
-		//  t.Error("Expected message from stream")
-		//}
 	}
 }

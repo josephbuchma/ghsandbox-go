@@ -29,7 +29,7 @@ var debug = flag.Bool("debug", false, "debug mode")
 // packBytes returns byte slice with prepended 4 bytes with size data
 func packBytes(b []byte) []byte {
 	msgLen := uint32(len(b))
-	fmt.Fprintf(os.Stdout, "%d\n", msgLen)
+	log.Printf("%d\n", msgLen)
 	buf := bytes.Buffer{}
 	binary.Write(&buf, binary.LittleEndian, msgLen)
 	buf.Write(b)
@@ -91,19 +91,16 @@ func NewMessage(messageType string, rawPayload interface{}) *Message {
 	return &Message{Type: messageType, rawPayload: rawPayload}
 }
 
-func p(s string, v ...interface{}) {
-	fmt.Fprintf(os.Stdout, s+"\n", v...)
-}
-
 func ReadMessage(r io.Reader) (*Message, error) {
-	p("READ MESSAGE\n")
+	log.Println("READ MESSAGE\n")
 	msgLen, err := readMsgLen(r)
-	p("msgLen=%d\n", msgLen)
+	log.Printf("msgLen=%d\n", msgLen)
 	if err != nil {
 		return nil, err
 	}
 	body := make([]byte, msgLen)
 	_, err = io.ReadFull(r, body)
+	log.Printf("MSG BODY: %q", body)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +116,8 @@ func NewMessageStreamReader(r io.Reader) <-chan *Message {
 			msg, err := ReadMessage(r)
 			if err == nil {
 				out <- msg
+			} else {
+				log.Printf("ReadMessage error: %s", err)
 			}
 			time.Sleep(5 * time.Millisecond)
 		}
@@ -130,13 +129,13 @@ func NewMessageStreamReader(r io.Reader) <-chan *Message {
 func (m *Message) Pack() (packedMessage []byte, err error) {
 	if m.Payload == nil {
 		m.Payload, err = json.Marshal(m.rawPayload)
-		fmt.Fprintf(os.Stdout, "Raw marshalled : %s\n", m.Payload)
+		log.Printf("Raw marshalled : %s\n", m.Payload)
 		if err != nil {
 			return nil, err
 		}
 	}
 	marshalled, err := json.Marshal(m)
-	fmt.Fprintf(os.Stdout, "%s\n", marshalled)
+	log.Printf("%s\n", marshalled)
 	return packBytes(marshalled), err
 }
 
@@ -230,8 +229,13 @@ func unmarshalMsg(body []byte, xmsg interface{}) interface{} {
 }
 
 func main() {
+	defer func() {
+		if pnc := recover(); pnc != nil {
+			log.Printf("PANIC: %v", pnc)
+		}
+	}()
 	flag.Parse()
-	if *debug {
+	if *debug || true {
 		f, err := os.Create("ghquick.log")
 		if err != nil {
 			panic(err)
@@ -248,6 +252,8 @@ func main() {
 
 	switch msg.Type {
 	case "sandbox":
+		respMsg := NewMessage("status", map[string]interface{}{"Foo": "bar"})
+		respMsg.WriteTo(os.Stdout)
 		handleSandboxAction(*unmarshalMsg(msg.Payload, &SandboxAction{}).(*SandboxAction))
 	default:
 		log.Println("NO ACTION MATCHED")

@@ -52,30 +52,6 @@ func readMsgLen(r io.Reader) (int, error) {
 	return int(msgLen), nil
 }
 
-func receiveMsg() (action string, body []byte) {
-	log.Println("Reading msg")
-	msgLen, err := readMsgLen(os.Stdin)
-	log.Printf("Message len: %d", msgLen)
-	body = make([]byte, msgLen)
-	n, err := os.Stdin.Read(body)
-	if err != nil {
-		log.Fatal("Failed to read stdin")
-	}
-	if n != msgLen {
-		log.Fatal("Invalid message (size mismatch: %d vs %d)", msgLen, n)
-	}
-
-	act := Message{}
-	err = json.Unmarshal(body, &act)
-	if err != nil {
-		log.Fatal("Failed to parse action")
-	}
-
-	action = act.Type
-
-	return
-}
-
 // Message represent structure that is used for communication with GHSandbox Chrome extension
 type Message struct {
 	// Type tells to what you should unmarshal the Payload

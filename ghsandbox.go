@@ -122,7 +122,7 @@ func (m Message) WriteTo(w io.Writer) (int64, error) {
 }
 
 type SandboxAction struct {
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
 func cloneGitRepo(url, dest string) error {
@@ -180,7 +180,7 @@ func createSandboxDirectory(u *url.URL) string {
 }
 
 func handleSandboxAction(sa SandboxAction) {
-	ur, err := url.Parse(sa.Url)
+	ur, err := url.Parse(sa.URL)
 	if err != nil {
 		log.Fatal("Failed to parse url")
 	}

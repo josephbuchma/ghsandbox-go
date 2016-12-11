@@ -57,7 +57,12 @@ fi
 
 if hash go > /dev/null 2>&1 ; then
   echo 'Build ghsandbox host app from source'
-  go build -o $HOST_PATH ghsandbox.go
+  if go build -o $HOST_PATH ghsandbox.go ; then
+		echo 'Build success'
+  else
+		echo 'Build failed.'
+		exit 1
+	fi
 else
   echo 'Copying pre-built ghsandbox binary (install golang compiler to build from source)'
   cp ghsandbox $HOST_PATH

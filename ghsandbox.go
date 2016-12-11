@@ -111,14 +111,14 @@ func (m *Message) Pack() (packedMessage []byte, err error) {
 }
 
 // WriteTo writes packed message
-func (m Message) WriteTo(w io.Writer) error {
+func (m Message) WriteTo(w io.Writer) (int64, error) {
 	packed, err := m.Pack()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	_, err = w.Write(packed)
-	return err
+	n, err := w.Write(packed)
+	return int64(n), err
 }
 
 type SandboxAction struct {

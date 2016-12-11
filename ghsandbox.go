@@ -68,15 +68,12 @@ func NewMessage(messageType string, rawPayload interface{}) *Message {
 }
 
 func ReadMessage(r io.Reader) (*Message, error) {
-	log.Println("READ MESSAGE\n")
 	msgLen, err := readMsgLen(r)
-	log.Printf("msgLen=%d\n", msgLen)
 	if err != nil {
 		return nil, err
 	}
 	body := make([]byte, msgLen)
 	_, err = io.ReadFull(r, body)
-	log.Printf("MSG BODY: %q", body)
 	if err != nil {
 		return nil, err
 	}
@@ -105,13 +102,11 @@ func NewMessageStreamReader(r io.Reader) <-chan *Message {
 func (m *Message) Pack() (packedMessage []byte, err error) {
 	if m.Payload == nil {
 		m.Payload, err = json.Marshal(m.rawPayload)
-		log.Printf("Raw marshalled : %s\n", m.Payload)
 		if err != nil {
 			return nil, err
 		}
 	}
 	marshalled, err := json.Marshal(m)
-	log.Printf("%s\n", marshalled)
 	return packBytes(marshalled), err
 }
 
@@ -148,14 +143,14 @@ func openTerminal(workingDir string) error {
 func createRepoSandbox(url, path string, remove bool) error {
 	err := cloneGitRepo(url, path)
 	if err != nil {
-		log.Print("Failed to clone repo")
+		log.Println("Failed to clone repo")
 		return err
 	}
 	if remove {
 		defer func() {
 			err = os.RemoveAll(path)
 			if err != nil {
-				log.Println("Failed to remove sandbox directory: %s", path)
+				log.Printf("Failed to remove sandbox directory %s: %s", path, err)
 			}
 		}()
 	}

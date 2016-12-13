@@ -1,5 +1,0 @@
-2016/11/30 15:40:23 Starting github-sandbox
-2016/11/30 15:40:23 Reading msg
-2016/11/30 15:40:23 Read 4 bytes of len
-2016/11/30 15:40:23 Message len: 69
-2016/11/30 15:40:23 Received message: {"action":"sandbox","url":"https://github.com/solanolabs/golang-geo"}

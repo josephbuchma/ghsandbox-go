@@ -57,7 +57,7 @@ fi
 
 if hash go > /dev/null 2>&1 ; then
   echo 'Build ghsandbox host app from source'
-  if go build -o $HOST_PATH ghsandbox.go ; then
+  if go build -o $HOST_PATH . ; then
 		echo 'Build success'
   else
 		echo 'Build failed.'

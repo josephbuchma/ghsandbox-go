@@ -70,6 +70,9 @@ fi
 
 ESCAPED_HOST_PATH=${HOST_PATH////\\/}
 sed -i -e "s/HOST_PATH_PLACEHOLDER/$ESCAPED_HOST_PATH/" "$TARGET_DIR/$HOST_NAME.json"
+# set app id
+[[ $EXTENSION_ID == '' ]] && echo 'ERROR: EXTENSION_ID environment variable is not set.' && exit 1
+sed -i -e "s/EXTENSION_ID_PLACEHOLDER/$EXTENSION_ID/" "$TARGET_DIR/$HOST_NAME.json"
 # Set permissions for the manifest so that all users can read it.
 chmod o+r "$TARGET_DIR/$HOST_NAME.json"
 echo "Native messaging host $HOST_NAME has been installed."
